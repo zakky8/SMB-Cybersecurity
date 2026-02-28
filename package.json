@@ -1,0 +1,23 @@
+{
+  "name": "shielddesk",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/dashboard\"",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/dashboard",
+    "test": "npm run test --workspace=apps/api",
+    "lint": "eslint . --ext .ts,.tsx",
+    "db:push": "npm run db:push --workspace=apps/api",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "db:studio": "npm run db:studio --workspace=apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "typescript": "^5.3.3",
+    "prettier": "^3.2.4"
+  }
+}

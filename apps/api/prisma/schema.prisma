@@ -1,0 +1,409 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id                    String   @id @default(cuid())
+  clerkOrgId            String   @unique
+  name                  String
+  logo                  String?
+  website               String?
+  industry              String?
+  size                  Int?
+  country               String?
+  subscriptionPlan      String   @default("starter") // starter, professional, enterprise
+  subscriptionStatus    String   @default("active") // active, trial, canceled, past_due
+  stripeCustomerId      String?  @unique
+  stripeSubscriptionId  String?
+  trialEndsAt           DateTime?
+  billingEmail          String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  members               Member[]
+  devices               Device[]
+  threats               Threat[]
+  employees             Employee[]
+  emailScans            EmailScan[]
+  simulations           PhishingSimulation[]
+  trainingModules       TrainingModule[]
+  breachAlerts          BreachAlert[]
+  dnsBlocklists         DNSBlocklist[]
+  reports               SecurityReport[]
+  securityScore         SecurityScore[]
+
+  @@index([clerkOrgId])
+}
+
+model Member {
+  id                    String   @id @default(cuid())
+  clerkUserId           String
+  organizationId        String
+  email                 String
+  firstName             String?
+  lastName              String?
+  role                  String   @default("member") // owner, admin, member
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, clerkUserId])
+  @@index([organizationId])
+  @@index([clerkUserId])
+}
+
+model Employee {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  email                 String
+  firstName             String
+  lastName              String
+  jobTitle              String?
+  department            String?
+  status                String   @default("active") // active, invited, offboarded
+  invitedAt             DateTime?
+  invitationToken       String?  @unique
+  invitationExpiresAt   DateTime?
+  lastLoginAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  trainingProgress      TrainingProgress[]
+  simulationResults     SimulationResult[]
+  breachRecords         BreachRecord[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model Device {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  deviceName            String
+  deviceType            String   // laptop, desktop, mobile, server
+  osType                String   // windows, macos, linux, ios, android
+  osVersion             String?
+  agentVersion          String?
+  agentStatus           String   @default("offline") // online, offline, inactive
+  enrollmentToken       String   @unique
+  enrollmentDate        DateTime?
+  lastSeenAt            DateTime?
+  ipAddress             String?
+  macAddress            String?
+  diskEncrypted         Boolean  @default(false)
+  mfaEnabled            Boolean  @default(false)
+  firewallEnabled       Boolean  @default(false)
+  antivirusEnabled      Boolean  @default(false)
+  antivirusLastUpdated  DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scans                 SecurityScan[]
+  threats               Threat[]
+
+  @@index([organizationId])
+  @@index([agentStatus])
+}
+
+model SecurityScan {
+  id                    String   @id @default(cuid())
+  deviceId              String
+  scanType              String   // full, quick, custom
+  status                String   @default("pending") // pending, in_progress, completed, failed
+  startedAt             DateTime @default(now())
+  completedAt           DateTime?
+  threatsFound          Int      @default(0)
+  filesScanned          Int      @default(0)
+  errorMessage          String?
+  createdAt             DateTime @default(now())
+
+  device                Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([status])
+}
+
+model Threat {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  deviceId              String?
+  threatName            String
+  threatType            String   // virus, malware, pup, adware, worm, trojan
+  severity              String   @default("medium") // critical, high, medium, low
+  filePath              String?
+  fileHash              String?
+  detectedAt            DateTime @default(now())
+  status                String   @default("active") // active, resolved, dismissed
+  resolvedAt            DateTime?
+  dismissedAt           DateTime?
+  dismissReason         String?
+  createdAt             DateTime @default(now())
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  device                Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([deviceId])
+  @@index([status])
+  @@index([severity])
+}
+
+model EmailScan {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  messageId             String   @unique
+  fromEmail             String
+  toEmail               String
+  subject               String
+  receivedAt            DateTime
+  scanStatus            String   @default("pending") // pending, scanning, completed
+  isPhishing            Boolean  @default(false)
+  isSpam                Boolean  @default(false)
+  isMalware             Boolean  @default(false)
+  threatScore           Float    @default(0)
+  quarantined           Boolean  @default(false)
+  quarantinedAt         DateTime?
+  restoredAt            DateTime?
+  createdAt             DateTime @default(now())
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scanResults           EmailScanResult[]
+
+  @@index([organizationId])
+  @@index([scanStatus])
+  @@index([quarantined])
+}
+
+model EmailScanResult {
+  id                    String   @id @default(cuid())
+  emailScanId           String
+  checkType             String   // url_reputation, attachment_scan, header_analysis
+  result                String
+  riskLevel             String   // safe, warning, dangerous
+  createdAt             DateTime @default(now())
+
+  emailScan             EmailScan @relation(fields: [emailScanId], references: [id], onDelete: Cascade)
+
+  @@index([emailScanId])
+}
+
+model PhishingSimulation {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  name                  String
+  description           String?
+  templateId            String?
+  status                String   @default("draft") // draft, scheduled, in_progress, completed
+  targetCount           Int      @default(0)
+  clickRate             Float    @default(0)
+  submissionRate        Float    @default(0)
+  reportsRate           Float    @default(0)
+  scheduledFor          DateTime?
+  startedAt             DateTime?
+  completedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  results               SimulationResult[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model SimulationResult {
+  id                    String   @id @default(cuid())
+  simulationId          String
+  employeeId            String
+  emailSent             DateTime @default(now())
+  linkClicked           Boolean  @default(false)
+  clickedAt             DateTime?
+  credentialsSubmitted  Boolean  @default(false)
+  submittedAt           DateTime?
+  reportedAsPhishing    Boolean  @default(false)
+  reportedAt            DateTime?
+  result                String   @default("no_interaction") // no_interaction, clicked, submitted, reported
+
+  simulation            PhishingSimulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+  employee              Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([simulationId, employeeId])
+  @@index([simulationId])
+  @@index([employeeId])
+}
+
+model TrainingModule {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  title                 String
+  description           String?
+  content               String
+  contentType           String   @default("article") // article, video, quiz
+  duration              Int      // in minutes
+  status                String   @default("published") // draft, published, archived
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  progress              TrainingProgress[]
+
+  @@index([organizationId])
+}
+
+model TrainingProgress {
+  id                    String   @id @default(cuid())
+  moduleId              String
+  employeeId            String
+  status                String   @default("not_started") // not_started, in_progress, completed
+  startedAt             DateTime?
+  completedAt           DateTime?
+  score                 Int?
+  createdAt             DateTime @default(now())
+
+  module                TrainingModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  employee              Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, employeeId])
+  @@index([moduleId])
+  @@index([employeeId])
+}
+
+model BreachAlert {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  breachName            String
+  breachDate            DateTime
+  breachSource          String
+  affectedCount         Int?
+  description           String?
+  severity              String   @default("medium") // critical, high, medium, low
+  detectedAt            DateTime @default(now())
+  alertSent             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  affectedBreaches      BreachRecord[]
+
+  @@index([organizationId])
+}
+
+model BreachRecord {
+  id                    String   @id @default(cuid())
+  breachAlertId         String
+  employeeId            String
+  email                 String
+  exposedData           String[] // password, email, username, ssn, etc
+  notifiedAt            DateTime?
+  createdAt             DateTime @default(now())
+
+  breachAlert           BreachAlert @relation(fields: [breachAlertId], references: [id], onDelete: Cascade)
+  employee              Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([breachAlertId])
+  @@index([employeeId])
+}
+
+model DNSBlocklist {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  domain                String
+  blocklistName         String
+  category              String   // malware, phishing, spam, adware
+  isCategorized         Boolean  @default(false)
+  severity              String   @default("medium")
+  lastCheckedAt         DateTime @default(now())
+  createdAt             DateTime @default(now())
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, domain])
+  @@index([organizationId])
+}
+
+model SecurityScore {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  totalScore            Float    @default(0)
+  mfaScore              Int      @default(0) // max 25
+  agentScore            Int      @default(0) // max 20
+  breachScore           Int      @default(0) // max 20
+  trainingScore         Int      @default(0) // max 15
+  simulationScore       Int      @default(0) // max 10
+  passwordScore         Int      @default(0) // max 10
+  calculatedAt          DateTime @default(now())
+  createdAt             DateTime @default(now())
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model SecurityReport {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  reportType            String   @default("monthly") // monthly, quarterly, annual
+  month                 Int?
+  year                  Int?
+  totalScore            Float
+  mfaCompliance         Float
+  deviceCompliance      Float
+  trainingCompletion    Float
+  simulationResults     Float
+  breachRisk            Float
+  threats               Int
+  devicesScanned        Int
+  pdfUrl                String?
+  sentAt                DateTime?
+  createdAt             DateTime @default(now())
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([reportType])
+}
+
+model Job {
+  id                    String   @id @default(cuid())
+  type                  String
+  status                String   @default("pending") // pending, processing, completed, failed
+  payload               Json
+  error                 String?
+  attempts              Int      @default(0)
+  maxAttempts           Int      @default(3)
+  nextRetryAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+}
+
+model AuditLog {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  userId                String?
+  action                String
+  entityType            String
+  entityId              String
+  changes               Json?
+  ipAddress             String?
+  userAgent             String?
+  createdAt             DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([action])
+  @@index([createdAt])
+}

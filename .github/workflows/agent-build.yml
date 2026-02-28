@@ -1,0 +1,57 @@
+name: Build Agents
+
+on:
+  push:
+    paths:
+      - 'apps/agent-mac/**'
+      - 'apps/agent-windows/**'
+    branches: [main]
+  pull_request:
+    paths:
+      - 'apps/agent-mac/**'
+      - 'apps/agent-windows/**'
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/agent-mac
+      - name: Build macOS agent (x86_64)
+        run: cargo build --release --target x86_64-apple-darwin
+        working-directory: apps/agent-mac
+      - name: Build macOS agent (ARM64)
+        run: cargo build --release --target aarch64-apple-darwin
+        working-directory: apps/agent-mac
+      - name: Create universal binary
+        run: |
+          lipo -create \
+            target/x86_64-apple-darwin/release/shielddesk-agent \
+            target/aarch64-apple-darwin/release/shielddesk-agent \
+            -output shielddesk-agent-mac
+        working-directory: apps/agent-mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shielddesk-agent-mac
+          path: apps/agent-mac/shielddesk-agent-mac
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/agent-windows
+      - name: Build Windows agent
+        run: cargo build --release
+        working-directory: apps/agent-windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shielddesk-agent-windows
+          path: apps/agent-windows/target/release/shielddesk-agent.exe
