@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -9,10 +10,13 @@ const api: AxiosInstance = axios.create({
   },
 });
 
+// Guard against SSR — localStorage and window only exist in browser
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('clerk-token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('clerk-token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -20,7 +24,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
       window.location.href = '/auth/sign-in';
     }
     return Promise.reject(error);
@@ -29,73 +33,83 @@ api.interceptors.response.use(
 
 export const apiClient = {
   // Dashboard
-  getDashboardStats: () => api.get('/dashboard/stats'),
-  getSecurityScore: () => api.get('/dashboard/security-score'),
-  getSecurityTrend: (days: number = 30) => api.get(`/dashboard/trend?days=${days}`),
+  getDashboardStats: () => api.get('/v1/dashboard/stats'),
+  getSecurityScore: () => api.get('/v1/dashboard/security-score'),
+  getSecurityTrend: (days: number = 30) =>
+    api.get(`/v1/dashboard/trend?days=${days}`),
 
   // Threats
-  getThreats: (status?: string) => api.get('/threats', { params: { status } }),
-  getThreatById: (id: string) => api.get(`/threats/${id}`),
-  resolveThreats: (ids: string[], action: string) => api.post('/threats/resolve', { ids, action }),
-  quarantineEmails: (emails: string[]) => api.post('/threats/quarantine', { emails }),
+  getThreats: (status?: string) =>
+    api.get('/v1/threats', { params: { status } }),
+  getThreatById: (id: string) => api.get(`/v1/threats/${id}`),
+  resolveThreats: (ids: string[], action: string) =>
+    api.post('/v1/threats/resolve', { ids, action }),
 
   // Devices
-  getDevices: () => api.get('/devices'),
-  getDeviceById: (id: string) => api.get(`/devices/${id}`),
-  enrollDevice: (name: string, type: string) => api.post('/devices/enroll', { name, type }),
-  updateDeviceStatus: (id: string, status: string) => api.patch(`/devices/${id}`, { status }),
-  getDeviceSecurity: (id: string) => api.get(`/devices/${id}/security`),
+  getDevices: () => api.get('/v1/devices'),
+  getDeviceById: (id: string) => api.get(`/v1/devices/${id}`),
+  enrollDevice: (name: string, type: string) =>
+    api.post('/v1/devices/enroll', { name, type }),
+  updateDeviceStatus: (id: string, status: string) =>
+    api.patch(`/v1/devices/${id}`, { status }),
 
   // Employees
-  getEmployees: () => api.get('/employees'),
-  getEmployeeById: (id: string) => api.get(`/employees/${id}`),
-  inviteEmployee: (email: string, role: string) => api.post('/employees/invite', { email, role }),
-  updateEmployee: (id: string, data: any) => api.patch(`/employees/${id}`, data),
-  removeEmployee: (id: string) => api.delete(`/employees/${id}`),
+  getEmployees: () => api.get('/v1/employees'),
+  getEmployeeById: (id: string) => api.get(`/v1/employees/${id}`),
+  inviteEmployee: (email: string, role: string) =>
+    api.post('/v1/employees/invite', { email, role }),
+  updateEmployee: (id: string, data: Record<string, unknown>) =>
+    api.patch(`/v1/employees/${id}`, data),
+  removeEmployee: (id: string) => api.delete(`/v1/employees/${id}`),
 
-  // Passwords
-  getBreachedPasswords: () => api.get('/passwords/breached'),
-  checkPasswordBreach: (password: string) => api.post('/passwords/check', { password }),
-  getPasswordStats: () => api.get('/passwords/stats'),
+  // Breach / Passwords
+  getBreachAlerts: () => api.get('/v1/breach'),
+  acknowledgeBreachAlert: (id: string) =>
+    api.patch(`/v1/breach/${id}/acknowledge`),
+  checkPasswordBreach: (hash: string) =>
+    api.post('/v1/breach/check-password', { hash }),
 
-  // Email
-  getEmailThreats: () => api.get('/email/threats'),
-  getQuarantineEmails: () => api.get('/email/quarantine'),
-  releaseQuarantineEmail: (id: string) => api.post(`/email/quarantine/${id}/release`, {}),
-  deleteQuarantineEmail: (id: string) => api.delete(`/email/quarantine/${id}`),
+  // Email scans
+  getEmailScans: () => api.get('/v1/email-scans'),
+  getQuarantinedEmails: () =>
+    api.get('/v1/email-scans', { params: { quarantined: true } }),
+  releaseQuarantinedEmail: (id: string) =>
+    api.post(`/v1/email-scans/${id}/release`, {}),
 
-  // Network
-  getDNSLogs: () => api.get('/network/dns'),
-  getCloudApps: () => api.get('/network/cloud-apps'),
-  updateCloudAppPermission: (id: string, permission: string) => api.patch(`/network/cloud-apps/${id}`, { permission }),
+  // DNS
+  getDNSBlocklist: () => api.get('/v1/dns/blocklist'),
+  addDNSBlock: (domain: string, reason: string) =>
+    api.post('/v1/dns/blocklist', { domain, reason }),
+  removeDNSBlock: (id: string) => api.delete(`/v1/dns/blocklist/${id}`),
+
+  // Simulations
+  getSimulations: () => api.get('/v1/simulations'),
+  launchSimulation: (templateId?: number) =>
+    api.post('/v1/simulations', { templateId }),
+  getSimulationResults: (id: string) =>
+    api.get(`/v1/simulations/${id}/results`),
 
   // Training
-  getSimulations: () => api.get('/training/simulations'),
-  getSimulationResults: () => api.get('/training/results'),
-  launchSimulation: (userIds: string[]) => api.post('/training/simulate', { userIds }),
-  getTrainingCompletion: () => api.get('/training/completion'),
-
-  // MFA
-  getMFAStatus: () => api.get('/mfa/status'),
-  enableMFA: (userId: string) => api.post(`/mfa/${userId}/enable`, {}),
-  disableMFA: (userId: string) => api.post(`/mfa/${userId}/disable`, {}),
-
-  // Organization
-  getOrgSettings: () => api.get('/organization/settings'),
-  updateOrgSettings: (settings: any) => api.patch('/organization/settings', settings),
-  getBillingInfo: () => api.get('/organization/billing'),
-  getIntegrations: () => api.get('/organization/integrations'),
-  connectIntegration: (type: string, credentials: any) => api.post('/organization/integrations', { type, credentials }),
+  getTrainingModules: () => api.get('/v1/training'),
+  getTrainingProgress: () => api.get('/v1/training/progress'),
+  completeModule: (moduleId: string) =>
+    api.post(`/v1/training/${moduleId}/complete`, {}),
 
   // Reports
-  getMonthlyReport: (month: string) => api.get(`/reports/monthly?month=${month}`),
-  generateReport: (format: 'pdf' | 'csv') => api.get(`/reports/generate?format=${format}`),
-  getReportSchedule: () => api.get('/reports/schedule'),
-  updateReportSchedule: (schedule: any) => api.patch('/reports/schedule', schedule),
+  getMonthlyReport: (month: string) =>
+    api.get(`/v1/reports/monthly?month=${month}`),
+  downloadReport: () => api.get('/v1/reports/monthly/pdf', { responseType: 'blob' }),
 
-  // Onboarding
-  completeOnboardingStep: (step: number) => api.post(`/onboarding/steps/${step}/complete`, {}),
-  getOnboardingStatus: () => api.get('/onboarding/status'),
+  // Organizations
+  getOrgSettings: () => api.get('/v1/organizations/settings'),
+  updateOrgSettings: (settings: Record<string, unknown>) =>
+    api.patch('/v1/organizations/settings', settings),
+
+  // Billing
+  createCheckoutSession: (priceId: string) =>
+    api.post('/v1/billing/checkout', { priceId }),
+  getBillingInfo: () => api.get('/v1/billing/info'),
+  createPortalSession: () => api.post('/v1/billing/portal', {}),
 };
 
 export default api;

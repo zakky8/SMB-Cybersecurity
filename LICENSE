@@ -1,0 +1,74 @@
+PROPRIETARY SOFTWARE LICENSE
+
+Copyright (c) 2026 Shinoj (shinojvb995@gmail.com)
+All Rights Reserved.
+
+OWNERSHIP
+=========
+This software, "ShieldDesk", including all source code, documentation,
+design, architecture, algorithms, data schemas, and any associated
+materials (collectively, "the Software"), is the exclusive intellectual
+property of Shinoj. All rights are reserved.
+
+RESTRICTIONS
+============
+No part of this Software may be:
+
+1. Copied, reproduced, or duplicated in whole or in part, in any form
+   or by any means, without the prior written consent of the copyright
+   holder.
+
+2. Modified, adapted, translated, reverse engineered, decompiled,
+   disassembled, or otherwise derived.
+
+3. Distributed, sublicensed, sold, rented, leased, lent, transferred,
+   or otherwise made available to any third party.
+
+4. Used to create derivative works.
+
+5. Published, posted, or transmitted in any form without express
+   written permission from the copyright holder.
+
+PERMITTED USES
+==============
+The copyright holder grants the following limited rights:
+
+- The Software may be used for private, personal development purposes
+  by the copyright holder.
+- The copyright holder may deploy the Software for commercial purposes
+  under their own name and brand.
+- The copyright holder may modify the Software for their own use.
+
+THIRD-PARTY COMPONENTS
+=======================
+This Software incorporates certain open-source components, each governed
+by their respective licenses. These open-source components do not affect
+the proprietary status of the original ShieldDesk code. A list of
+third-party components and their licenses is maintained in THIRD_PARTY.md.
+
+NO WARRANTY
+===========
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES,
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+GOVERNING LAW
+=============
+This license shall be governed by and construed in accordance with
+applicable law. Any disputes arising from this license shall be subject
+to the exclusive jurisdiction of the courts in the copyright holder's
+jurisdiction.
+
+CONTACT
+=======
+For licensing inquiries, permissions, or questions:
+Email: shinojvb995@gmail.com
+
+================================================================================
+ShieldDesk — Cybersecurity for Small Businesses
+Copyright (c) 2026 Shinoj. All Rights Reserved.
+================================================================================

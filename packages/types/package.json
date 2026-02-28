@@ -13,9 +13,10 @@
     "shielddesk",
     "types"
   ],
-  "author": "ShieldDesk",
-  "license": "MIT",
+  "author": "Shinoj <shinojvb995@gmail.com>",
+  "license": "UNLICENSED",
   "devDependencies": {
     "typescript": "^5.3.3"
-  }
+  },
+  "private": true
 }
