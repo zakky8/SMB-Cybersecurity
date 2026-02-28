@@ -14,7 +14,7 @@
     "email",
     "templates"
   ],
-  "author": "Shinoj <shinojvb995@gmail.com>",
+  "author": "zakky8",
   "license": "UNLICENSED",
   "dependencies": {
     "@react-email/components": "^0.0.10",

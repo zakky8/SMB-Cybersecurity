@@ -15,7 +15,7 @@
     "security",
     "scoring"
   ],
-  "author": "Shinoj <shinojvb995@gmail.com>",
+  "author": "zakky8",
   "license": "UNLICENSED",
   "dependencies": {
     "@shielddesk/types": "*"

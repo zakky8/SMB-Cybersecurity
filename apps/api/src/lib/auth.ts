@@ -28,7 +28,7 @@ export async function authMiddleware(
 
     // Verify JWT token from Clerk
     const payload = await verifyToken(token, {
-      secretKey: process.env.CLERK_SECRET_KEY,
+      secretKey: process.env.CLERK_SECRET_KEY || "",
     });
 
     if (!payload) {
@@ -38,12 +38,13 @@ export async function authMiddleware(
       });
     }
 
+    // Clerk payload custom claims are typed as unknown — cast safely
     (request as AuthenticatedRequest).user = {
       id: payload.sub || "",
-      email: payload.email || "",
-      firstName: payload.first_name,
-      lastName: payload.last_name,
-      orgId: payload.org_id,
+      email: String(payload["email"] ?? ""),
+      firstName: payload["first_name"] ? String(payload["first_name"]) : undefined,
+      lastName: payload["last_name"] ? String(payload["last_name"]) : undefined,
+      orgId: payload["org_id"] ? String(payload["org_id"]) : undefined,
     };
   } catch (error) {
     console.error("Auth error:", error);
@@ -56,7 +57,8 @@ export async function authMiddleware(
 
 export function getOrgIdFromRequest(request: FastifyRequest): string {
   const auth = request as AuthenticatedRequest;
-  const orgId = auth.user?.orgId || request.query?.orgId || "";
+  const query = request.query as Record<string, string | undefined>;
+  const orgId = auth.user?.orgId || query?.["orgId"] || "";
 
   if (!orgId) {
     throw new Error("Organization ID not found");
