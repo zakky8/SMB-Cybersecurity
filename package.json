@@ -2,21 +2,23 @@
   "name": "shielddesk",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/api", "apps/dashboard", "packages/*"],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/dashboard\"",
-    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/dashboard",
-    "test": "npm run test --workspace=apps/api",
-    "lint": "eslint . --ext .ts,.tsx",
-    "db:push": "npm run db:push --workspace=apps/api",
-    "db:migrate": "npm run db:migrate --workspace=apps/api",
-    "db:studio": "npm run db:studio --workspace=apps/api"
+    "dev": "concurrently \"npm run dev --workspace=@shielddesk/api\" \"npm run dev --workspace=@shielddesk/dashboard\"",
+    "build": "npm run build --workspace=@shielddesk/types && npm run build --workspace=@shielddesk/email-templates && npm run build --workspace=@shielddesk/security-score && npm run build --workspace=@shielddesk/api && npm run build --workspace=@shielddesk/dashboard",
+    "test": "npm run test --workspace=@shielddesk/api",
+    "lint": "eslint . --ext .ts,.tsx --ignore-path .gitignore",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "db:generate": "npm run db:generate --workspace=@shielddesk/api",
+    "db:push": "npm run db:push --workspace=@shielddesk/api",
+    "db:migrate": "npm run db:migrate --workspace=@shielddesk/api",
+    "db:studio": "npm run db:studio --workspace=@shielddesk/api"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
     "eslint": "^8.57.0",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "typescript": "^5.3.3",
     "prettier": "^3.2.4"
   }

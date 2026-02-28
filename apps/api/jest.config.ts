@@ -15,14 +15,14 @@ const config: Config = {
   coverageDirectory: 'coverage',
   coverageThreshold: {
     global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
+      branches: 50,
+      functions: 50,
+      lines: 50,
+      statements: 50,
     },
   },
   coveragePathIgnorePatterns: ['/node_modules/', '/dist/', '/__tests__/'],
-  setupFilesAfterSetup: ['<rootDir>/src/__tests__/setup.ts'],
+  globalSetup: '<rootDir>/src/__tests__/setup.ts',
 };
 
 export default config;

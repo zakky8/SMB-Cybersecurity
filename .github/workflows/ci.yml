@@ -7,75 +7,118 @@ on:
     branches: [main, develop]
 
 jobs:
-  lint:
+  lint-and-typecheck:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x]
-
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/shielddesk_test
 
       - name: Run ESLint
         run: npm run lint
 
-      - name: Check TypeScript types
-        run: npm run type-check
+      - name: Check TypeScript types (API)
+        run: npx tsc --noEmit
+        working-directory: apps/api
+
+      - name: Check TypeScript types (Dashboard)
+        run: npx tsc --noEmit
+        working-directory: apps/dashboard
 
   test:
+    name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: shielddesk_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/shielddesk_test
+
+      - name: Push database schema
+        run: npx prisma db push --schema=apps/api/prisma/schema.prisma --skip-generate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/shielddesk_test
 
       - name: Run tests
-        run: npm run test
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/shielddesk_test
+          REDIS_URL: redis://localhost:6379
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          NODE_ENV: test
+          CLERK_SECRET_KEY: sk_test_placeholder
+          JWT_SECRET: test_jwt_secret
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
-          files: ./coverage/coverage-final.json
+          files: ./apps/api/coverage/coverage-final.json
           fail_ci_if_error: false
 
   build:
-    needs: [lint, test]
+    name: Build
+    needs: [lint-and-typecheck, test]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x]
-
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/shielddesk
 
       - name: Build types package
         run: npm run build -w @shielddesk/types
@@ -87,56 +130,53 @@ jobs:
         run: npm run build -w @shielddesk/security-score
 
       - name: Build API
-        run: npm run build -w apps/api
+        run: npm run build -w @shielddesk/api
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/shielddesk
 
       - name: Build Dashboard
-        run: npm run build -w apps/dashboard
+        run: npm run build -w @shielddesk/dashboard
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
 
-  test-rust:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        rust: [stable]
-
+  build-rust-mac:
+    name: Build macOS Agent
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
-
-      - name: Cache cargo registry
-        uses: actions/cache@v3
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          workspaces: apps/agent-mac
+      - name: Build (x86_64)
+        run: cargo build
+        working-directory: apps/agent-mac
+      - name: Run tests
+        run: cargo test
+        working-directory: apps/agent-mac
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        working-directory: apps/agent-mac
 
-      - name: Cache cargo index
-        uses: actions/cache@v3
+  build-rust-windows:
+    name: Build Windows Agent
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v3
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build macOS agent
-        if: runner.os == 'macos'
-        run: cargo build --release -p shielddesk-agent-mac
-
-      - name: Build Windows agent
-        if: runner.os == 'windows'
-        run: cargo build --release -p shielddesk-agent-windows
-
-      - name: Run Rust tests
-        run: cargo test --all
-
-      - name: Run Rust clippy
-        run: cargo clippy --all -- -D warnings
+          workspaces: apps/agent-windows
+      - name: Build
+        run: cargo build
+        working-directory: apps/agent-windows
+      - name: Run tests
+        run: cargo test
+        working-directory: apps/agent-windows
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        working-directory: apps/agent-windows

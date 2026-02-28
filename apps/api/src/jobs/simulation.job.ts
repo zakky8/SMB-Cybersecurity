@@ -1,7 +1,7 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
-import { prisma } from '../lib/db';
-import { GoPhishClient } from '../integrations/gophish';
+import prisma from '../lib/db';
+import { createCampaign } from '../integrations/gophish';
 
 const QUEUE_NAME = 'phishing-simulation';
 
@@ -18,36 +18,34 @@ export const simulationQueue = new Queue(QUEUE_NAME, {
 export const simulationWorker = new Worker(
   QUEUE_NAME,
   async (job: Job) => {
-    const { orgId, templateId } = job.data;
-    const gophish = new GoPhishClient();
+    const { organizationId, templateId } = job.data;
 
     const employees = await prisma.employee.findMany({
-      where: { orgId, status: 'active' },
-      select: { id: true, email: true, name: true },
+      where: { organizationId, status: 'active' },
+      select: { id: true, email: true, firstName: true, lastName: true },
     });
 
     if (employees.length === 0) {
-      return { orgId, status: 'skipped', reason: 'no active employees' };
+      return { organizationId, status: 'skipped', reason: 'no active employees' };
     }
 
     // Create GoPhish campaign
-    const campaign = await gophish.createCampaign({
-      name: `ShieldDesk Sim - ${orgId} - ${new Date().toISOString()}`,
+    const campaign = await createCampaign({
+      name: `ShieldDesk Sim - ${organizationId} - ${new Date().toISOString()}`,
       templateId: templateId || Math.floor(Math.random() * 10) + 1,
       targets: employees.map((e) => ({
         email: e.email,
-        firstName: e.name.split(' ')[0],
-        lastName: e.name.split(' ').slice(1).join(' '),
+        firstName: e.firstName,
+        lastName: e.lastName,
       })),
     });
 
-    const simulation = await prisma.simulation.create({
+    const simulation = await prisma.phishingSimulation.create({
       data: {
-        orgId,
-        templateId: templateId || 1,
-        gophishCampaignId: campaign.id,
-        sentAt: new Date(),
-        results: {},
+        organizationId,
+        name: `Monthly Simulation - ${new Date().toLocaleDateString()}`,
+        templateId: String(templateId || 1),
+        status: 'in_progress',
       },
     });
 
@@ -55,3 +53,18 @@ export const simulationWorker = new Worker(
   },
   { connection: redis, concurrency: 3 }
 );
+
+simulationWorker.on('completed', (job) => {
+  console.log(`Simulation job ${job.id} completed`);
+});
+
+simulationWorker.on('failed', (job, err) => {
+  console.error(`Simulation job ${job?.id} failed:`, err);
+});
+
+export async function queueSimulation(
+  organizationId: string,
+  templateId?: number
+): Promise<void> {
+  await simulationQueue.add('run', { organizationId, templateId });
+}
